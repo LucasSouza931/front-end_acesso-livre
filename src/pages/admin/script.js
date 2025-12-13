@@ -88,27 +88,23 @@ async function loadPendingComments() {
 
     card.innerHTML = `
       <div class="top-info">
-        <strong>${comment.user_name ?? "Usuário"}</strong> — ${
-      comment.rating ?? ""
-    } ⭐
+        <strong>${comment.user_name ?? "Usuário"}</strong> — ${comment.rating ?? ""
+      } ⭐
       </div>
 
       <p class="comment-text">${comment.comment}</p>
 
       <div class="actions">
-        <button class="btn-approve" onclick="approve(${
-          comment.id
-        })">Aprovar</button>
-        <button class="btn-reject" onclick="reject(${
-          comment.id
-        })">Rejeitar</button>
-        ${
-          hasImages
-            ? `<button class="btn-photos" onclick="viewPhotos(decodeURIComponent('${encodeURIComponent(
-                JSON.stringify(images)
-              )}'))">Fotos</button>`
-            : ""
-        }
+        <button class="btn-approve" onclick="approve(${comment.id
+      })">Aprovar</button>
+        <button class="btn-reject" onclick="reject(${comment.id
+      })">Rejeitar</button>
+        ${hasImages
+        ? `<button class="btn-photos" onclick="viewPhotos(decodeURIComponent('${encodeURIComponent(
+          JSON.stringify(images)
+        )}'))">Fotos</button>`
+        : ""
+      }
       </div>
     `;
 
@@ -120,13 +116,27 @@ async function loadPendingComments() {
 // APROVAR / REJEITAR
 // ==========================
 window.approve = async function (id) {
-  await window.adminApi.approveComment(id);
-  loadPendingComments();
+  showConfirmation({
+    title: "Aprovar Comentário",
+    message: "Deseja aprovar e publicar este comentário?",
+    onConfirm: async () => {
+      await window.adminApi.approveComment(id);
+      loadPendingComments();
+    }
+  });
 };
 
 window.reject = async function (id) {
-  await window.adminApi.rejectComment(id);
-  loadPendingComments();
+  showConfirmation({
+    title: "Rejeitar Comentário",
+    message: "Tem certeza que deseja rejeitar este comentário?",
+    confirmText: "Rejeitar",
+    isDestructive: true,
+    onConfirm: async () => {
+      await window.adminApi.rejectComment(id);
+      loadPendingComments();
+    }
+  });
 };
 
 // ==========================
@@ -172,7 +182,7 @@ window.viewPhotos = function (imagesData) {
 
   // Processar imagens
   let imageArray = [];
-  
+
   if (Array.isArray(images)) {
     images.forEach((img) => {
       const url = resolveImageUrl(img);
@@ -184,7 +194,7 @@ window.viewPhotos = function (imagesData) {
 
   // Renderizar imagens sem delay desnecessário
   swiperWrapper.innerHTML = "";
-  
+
   if (imageArray.length === 0) {
     // Fallback: sem imagens
     swiperWrapper.innerHTML = `
@@ -213,16 +223,16 @@ window.viewPhotos = function (imagesData) {
     window.swiperInstance.destroy(true, true);
   }
 
-  // Criar Swiper
-  window.swiperInstance = new Swiper(".swiper", {
+  // Criar Swiper (apenas para o modal de fotos)
+  window.swiperInstance = new Swiper("#photoModal .swiper", {
     loop: imageArray.length > 1,
     pagination: {
-      el: ".swiper-pagination",
+      el: "#photoModal .swiper-pagination",
       clickable: true,
     },
     navigation: {
-      nextEl: ".swiper-button-next",
-      prevEl: ".swiper-button-prev",
+      nextEl: "#photoModal .swiper-button-next",
+      prevEl: "#photoModal .swiper-button-prev",
     },
   });
 };
@@ -268,15 +278,24 @@ async function loadLocationsList() {
     }
 
     // Renderizar lista de locais como cards clicáveis
+    // Ordenar por nome em ordem alfabética
+    locations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'pt-BR'));
+
     let html =
       '<button class="btn-create" onclick="openLocationForm()">+ Criar Novo Local</button>';
     html += '<div class="locations-grid">';
 
     locations.forEach((location) => {
-      // Processar imagens
+      // Processar imagens - suporta arrays de strings ou objetos
       let images = [];
       if (Array.isArray(location.images)) {
-        images = location.images.filter((img) => img && img.trim());
+        images = location.images
+          .map((img) => {
+            if (typeof img === 'string') return img.trim();
+            if (img && typeof img === 'object' && img.url) return img.url;
+            return null;
+          })
+          .filter((img) => img);
       } else if (
         typeof location.images === "string" &&
         location.images.trim()
@@ -293,9 +312,8 @@ async function loadLocationsList() {
         : '<div class="location-grid-no-img">📍</div>';
 
       html += `
-                <div class="location-grid-card" onclick="viewLocationDetails(${
-                  location.id
-                })">
+                <div class="location-grid-card" onclick="viewLocationDetails(${location.id
+        })">
                     <div class="location-grid-image">
                         ${imageHtml}
                     </div>
@@ -321,10 +339,16 @@ async function viewLocationDetails(locationId) {
   try {
     const location = await window.adminApi.getLocation(locationId);
 
-    // Processar imagens
+    // Processar imagens - suporta arrays de strings ou objetos
     let images = [];
     if (Array.isArray(location.images)) {
-      images = location.images.filter((img) => img && img.trim());
+      images = location.images
+        .map((img) => {
+          if (typeof img === 'string') return img.trim();
+          if (img && typeof img === 'object' && img.url) return img.url;
+          return null;
+        })
+        .filter((img) => img);
     } else if (typeof location.images === "string" && location.images.trim()) {
       images = location.images
         .split(",")
@@ -371,11 +395,10 @@ async function viewLocationDetails(locationId) {
         .map(
           (item) => `
                 <li>
-                    ${
-                      item.image
-                        ? `<img src="${item.image}" alt="${item.name}" style="width: 20px; height: 20px; margin-right: 8px;">`
-                        : ""
-                    }
+                    ${item.image
+              ? `<img src="${item.image}" alt="${item.name}" style="width: 20px; height: 20px; margin-right: 8px;">`
+              : ""
+            }
                     ${item.name}
                 </li>
             `
@@ -401,9 +424,6 @@ async function viewLocationDetails(locationId) {
                 <section class="detail-info-section">
                     <div class="detail-header">
                         <h1>${location.name}</h1>
-                        <button class="btn-edit-main" onclick="openLocationForm(${
-                          location.id
-                        })">Editar Local</button>
                     </div>
                     
                     <div class="detail-tabs">
@@ -422,27 +442,21 @@ async function viewLocationDetails(locationId) {
                         
                         <div class="detail-tab-pane" id="description-pane">
                             <h3>Descrição</h3>
-                            <p>${
-                              location.description || "Sem descrição fornecida"
-                            }</p>
+                            <p>${location.description || "Sem descrição fornecida"
+      }</p>
                         </div>
                         
                         <div class="detail-tab-pane" id="position-pane">
                             <h3>Posição no Mapa</h3>
                             <p><strong>Top:</strong> ${location.top || "-"}</p>
-                            <p><strong>Left:</strong> ${
-                              location.left || "-"
-                            }</p>
+                            <p><strong>Left:</strong> ${location.left || "-"
+      }</p>
                         </div>
                     </div>
                     
                     <div class="detail-actions">
-                        <button class="btn-edit" onclick="openLocationForm(${
-                          location.id
-                        })">Editar</button>
-                        <button class="btn-delete" onclick="confirmDeleteLocation(${
-                          location.id
-                        })">Excluir</button>
+                        <button class="btn-edit" onclick="openLocationForm(${location.id})">Editar</button>
+                        <button class="btn-delete" onclick="confirmDeleteLocation(${location.id})">Excluir</button>
                     </div>
                 </section>
             </div>
@@ -497,118 +511,254 @@ function backToLocationsList() {
 // 2. Abrir formulário de criação/edição
 async function openLocationForm(locationId = null) {
   const container = document.getElementById("locations-container");
-  let location = null;
+  // Carregar dados necessários (agora buscando ícones de comentários)
   let accessibilityItems = [];
-  let selectedAccessibilityItems = [];
+  let location = null;
+  let selectedAccessibilityItemIds = [];
 
-  // Se está editando, buscar dados do local
-  if (locationId !== null) {
-    container.innerHTML =
-      '<div class="loading-container"><div class="loading-spinner"></div></div>';
-    try {
-      location = await window.adminApi.getLocation(locationId);
-      selectedAccessibilityItems = location.accessibility_items || [];
-    } catch (error) {
-      console.error("Erro ao buscar local:", error);
-      container.innerHTML =
-        '<p style="color: red;">Erro ao carregar dados do local.</p>';
-      return;
-    }
-  }
-
-  // Buscar itens de acessibilidade
   try {
-    const response = await window.adminApi.getAccessibilityItems();
-    // Extrair array de accessibility_items (pode estar em response.accessibility_items ou ser um array direto)
-    accessibilityItems = Array.isArray(response)
-      ? response
-      : response?.accessibility_items || [];
+    // Tentar buscar ícones de comentários primeiro (nova rota)
+    let iconsResponse = null;
+    try {
+      iconsResponse = await window.adminApi.getCommentIcons();
+      window.lastApiResponse = iconsResponse;
+      console.log("Resposta getCommentIcons:", iconsResponse);
+    } catch (e) {
+      window.lastApiResponse = { error: e.toString() };
+      console.warn("Falha ao buscar ícones de comentário:", e);
+    }
+
+    // Processar resposta
+    if (Array.isArray(iconsResponse) && iconsResponse.length > 0) {
+      accessibilityItems = iconsResponse;
+    } else if (iconsResponse && Array.isArray(iconsResponse.comment_icons) && iconsResponse.comment_icons.length > 0) {
+      accessibilityItems = iconsResponse.comment_icons;
+    } else if (iconsResponse && Array.isArray(iconsResponse.icons) && iconsResponse.icons.length > 0) {
+      accessibilityItems = iconsResponse.icons;
+    } else if (iconsResponse && Array.isArray(iconsResponse.data) && iconsResponse.data.length > 0) {
+      accessibilityItems = iconsResponse.data;
+    } else {
+      // Fallback: Se não encontrou ícones, tentar a rota antiga de itens de acessibilidade
+      console.log("Fallback para getAccessibilityItems...");
+      const legacyResponse = await window.adminApi.getAccessibilityItems();
+      accessibilityItems = Array.isArray(legacyResponse) ? legacyResponse : (legacyResponse?.accessibility_items || []);
+    }
+
+    // Log final para debug
+    console.log("Itens finais para renderizar:", accessibilityItems);
+
+    // Se estiver editando, buscar dados do local
+    if (locationId) {
+      container.innerHTML =
+        '<div class="loading-container"><div class="loading-spinner"></div></div>';
+
+      // Buscar local e comentários em paralelo
+      const [loc, commentsResponse] = await Promise.all([
+        window.adminApi.getLocation(locationId),
+        window.adminApi.getCommentsByLocation(locationId)
+      ]);
+      location = loc;
+
+      // Extrair array de comentários (API retorna { comments: [...] })
+      const comments = commentsResponse?.comments || commentsResponse || [];
+
+      console.log("Comentários do local:", comments);
+
+      // Extrair IDs de ícones dos comentários
+      const commentsIconsIds = new Set();
+
+      if (Array.isArray(comments)) {
+        comments.forEach(comment => {
+          // 1. Verificar comment_icon_ids (IDs diretos)
+          if (comment.comment_icon_ids && Array.isArray(comment.comment_icon_ids)) {
+            comment.comment_icon_ids.forEach(id => commentsIconsIds.add(id));
+          }
+
+          // 2. Verificar comment_icons (Objetos ou Array misto)
+          let icons = comment.comment_icons;
+          if (typeof icons === 'string') {
+            // Se for string "1,2,3"
+            icons.split(',').forEach(id => commentsIconsIds.add(parseInt(id.trim())));
+          } else if (Array.isArray(icons)) {
+            icons.forEach(icon => {
+              if (typeof icon === 'object') {
+                if (icon.id) commentsIconsIds.add(icon.id);
+                if (icon.icon_url) commentsIconsIds.add(icon.icon_url);
+                if (icon.url) commentsIconsIds.add(icon.url);
+              } else {
+                commentsIconsIds.add(icon);
+              }
+            });
+          }
+        });
+      }
+
+      selectedAccessibilityItemIds = Array.from(commentsIconsIds);
+      console.log("IDs de ícones extraídos dos comentários:", selectedAccessibilityItemIds);
+
+      // Update Debug Info
+      const debugEl = document.getElementById('api-debug-info');
+      if (debugEl) {
+        const debugData = {
+          extractedIds: selectedAccessibilityItemIds,
+          availableItems: accessibilityItems.map(i => ({ id: i.id, name: i.name })),
+          commentsSample: comments.length > 0 ? {
+            id: comments[0].id,
+            icons: comments[0].comment_icons,
+            iconIds: comments[0].comment_icon_ids
+          } : 'No comments'
+        };
+        debugEl.textContent = "Debug Selection: " + JSON.stringify(debugData, null, 2);
+        debugEl.style.display = 'block';
+      }
+
+      // Fallback: Se não achou nos comentários, verificar no próprio local (retrocompatibilidade)
+      if (selectedAccessibilityItemIds.length === 0 && location && location.accessibility_items) {
+        if (location.accessibility_items.length > 0 && typeof location.accessibility_items[0] === 'object') {
+          selectedAccessibilityItemIds = location.accessibility_items.map(item => item.id);
+        } else {
+          selectedAccessibilityItemIds = location.accessibility_items;
+        }
+      }
+    }
   } catch (error) {
-    console.error("Erro ao buscar itens de acessibilidade:", error);
-    accessibilityItems = [];
+    console.error("Erro ao carregar dados:", error);
+    alert("Erro ao carregar dados do formulário");
+    return;
   }
 
   // Renderizar formulário
-  let html = `
+  const html = `
         <h3>${location ? "Editar Local" : "Criar Novo Local"}</h3>
         
         <form class="location-form" id="locationForm">
             <div class="form-group">
                 <label for="locName">Nome *</label>
-                <input type="text" id="locName" name="name" required value="${
-                  location?.name || ""
-                }" />
+                <input type="text" id="locName" name="name" required value="${location?.name || ""
+    }" />
             </div>
 
             <div class="form-group">
                 <label for="locDescription">Descrição</label>
-                <textarea id="locDescription" name="description">${
-                  location?.description || ""
-                }</textarea>
+                <textarea id="locDescription" name="description">${location?.description || ""
+    }</textarea>
             </div>
 
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="position-inputs-grid">
                 <div class="form-group">
                     <label for="locTop">Posição Y (top)</label>
-                    <input type="number" id="locTop" name="top" value="${
-                      location?.top || ""
-                    }" />
+                    <input type="number" id="locTop" name="top" value="${location?.top || ""
+    }" />
                 </div>
 
                 <div class="form-group">
                     <label for="locLeft">Posição X (left)</label>
-                    <input type="number" id="locLeft" name="left" value="${
-                      location?.left || ""
-                    }" />
+                    <input type="number" id="locLeft" name="left" value="${location?.left || ""}" />
                 </div>
             </div>
 
             <div class="form-group">
-                <label for="locImages">Imagens (URLs separadas por vírgula)</label>
-                <textarea id="locImages" name="images">${
-                  location?.images ? location.images.join(", ") : ""
-                }</textarea>
+                <label>Imagens do Local</label>
+                <div id="location-images-carousel" class="location-images-carousel">
+                    ${(() => {
+      // Processar imagens existentes
+      let existingImages = [];
+      if (location && Array.isArray(location.images)) {
+        existingImages = location.images.map((img) => {
+          if (typeof img === 'string') return { url: img, id: null };
+          if (img && typeof img === 'object') return { url: img.url, id: img.id };
+          return null;
+        }).filter(img => img && img.url);
+      }
+
+      if (existingImages.length === 0) {
+        return '<p class="no-images-msg">Nenhuma imagem cadastrada</p>';
+      }
+
+      return `
+                        <div id="edit-location-carousel" class="swiper edit-location-carousel">
+                          <div class="swiper-wrapper">
+                            ${existingImages.map((img, index) => `
+                              <div class="swiper-slide">
+                                <div class="carousel-image-item" data-image-id="${img.id || ''}" data-image-url="${img.url}">
+                                  <img src="${img.url}" alt="Imagem ${index + 1}">
+                                  <button type="button" class="btn-delete-image" onclick="deleteLocationImage('${img.id}', this)" ${!img.id ? 'disabled title="Imagem sem ID"' : ''}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                      <polyline points="3 6 5 6 21 6"></polyline>
+                                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                    </svg>
+                                    Excluir
+                                  </button>
+                                </div>
+                              </div>
+                            `).join('')}
+                          </div>
+                          <div class="swiper-button-next"></div>
+                          <div class="swiper-button-prev"></div>
+                          <div class="swiper-pagination"></div>
+                        </div>
+                      `;
+    })()}
+                </div>
             </div>
 
             <div class="form-group">
                 <label>Itens de Acessibilidade</label>
-                <div class="accessibility-items">
+                
+                <div class="accessibility-items-grid">
                     ${accessibilityItems
-                      .map(
-                        (item) => `
-                        <div class="accessibility-item-card">
-                            <input type="checkbox" id="acc-${item.id}" value="${
-                          item.id
-                        }" 
-                                ${
-                                  selectedAccessibilityItems.includes(item.id)
-                                    ? "checked"
-                                    : ""
-                                } />
-                            <div class="accessibility-item-content">
-                                ${
-                                  item.image
-                                    ? `<img src="${item.image}" alt="${item.name}" class="accessibility-icon">`
-                                    : ""
-                                }
-                                <label for="acc-${item.id}">${item.name}</label>
-                            </div>
-                        </div>
-                    `
-                      )
-                      .join("")}
-                    ${
-                      accessibilityItems.length === 0
-                        ? '<p style="color: #999; margin: 0;">Nenhum item disponível</p>'
-                        : ""
-                    }
+      .map(
+        (item, index) => {
+          let itemId, itemName, itemImage;
+
+          if (typeof item === 'object' && item !== null) {
+            // Objeto normal
+            itemId = item.id;
+            itemName = item.name || item.title || 'Item ' + item.id;
+            // Adicionado suporte para icon_url
+            itemImage = item.image || item.icon || item.icon_url || item.image_url || null;
+          } else if (typeof item === 'string') {
+            // String (provavelmente URL) - Fallback
+            itemId = item; // Usar a própria string como ID
+            itemName = 'Item ' + (index + 1);
+            itemImage = item;
+          } else {
+            return ''; // Ignorar item inválido
+          }
+
+          // Verificação mais robusta (usa 'some' e '==' para lidar com string vs number)
+          const isChecked = selectedAccessibilityItemIds.some(selected =>
+            (selected == itemId) || (selected === itemImage)
+          );
+
+          // Escapar ID para uso em atributo HTML
+          const safeId = String(itemId).replace(/[^a-zA-Z0-9-_]/g, '_');
+
+          return `
+            <label class="accessibility-icon-item ${isChecked ? 'selected' : ''}" for="acc-${safeId}">
+              <input type="checkbox" id="acc-${safeId}" value="${itemId}" ${isChecked ? "checked" : ""} 
+                onchange="this.parentElement.classList.toggle('selected', this.checked)">
+              
+              ${itemImage
+              ? `<img src="${itemImage}" alt="${itemName}" class="accessibility-icon-img">`
+              : `<div class="accessibility-icon-img icon-placeholder"></div>`
+            }
+              
+              <span class="accessibility-icon-name">${itemName}</span>
+            </label>
+          `;
+        }
+      )
+      .join("")}
+                    ${accessibilityItems.length === 0
+      ? '<p style="color: #999; margin: 0; text-align: center;">Nenhum item disponível</p>'
+      : ""
+    }
                 </div>
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn-submit">${
-                  location ? "Salvar Alterações" : "Criar Local"
-                }</button>
+                <button type="submit" class="btn-submit">${location ? "Salvar Alterações" : "Criar Local"}</button>
                 <button type="button" class="btn-cancel" onclick="loadLocationsList()">Cancelar</button>
             </div>
         </form>
@@ -616,71 +766,235 @@ async function openLocationForm(locationId = null) {
 
   container.innerHTML = html;
 
+  // Inicializar Swiper do carrossel de imagens (se existir)
+  const carouselEl = document.getElementById('edit-location-carousel');
+  if (carouselEl) {
+    // Destruir instância anterior se existir
+    if (window.editLocationCarousel) {
+      window.editLocationCarousel.destroy(true, true);
+    }
+    window.editLocationCarousel = new Swiper('#edit-location-carousel', {
+      slidesPerView: 1,
+      spaceBetween: 15,
+      loop: false,
+      autoplay: false,
+      grabCursor: true,
+      navigation: {
+        nextEl: '#edit-location-carousel .swiper-button-next',
+        prevEl: '#edit-location-carousel .swiper-button-prev',
+      },
+      pagination: {
+        el: '#edit-location-carousel .swiper-pagination',
+        clickable: true,
+      },
+    });
+  }
+
   // Listener do formulário
   document
     .getElementById("locationForm")
     .addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      // Coletar dados do formulário
-      const formData = new FormData(e.target);
-      const data = {
-        name: formData.get("name"),
-        description: formData.get("description") || "",
-        top: formData.get("top") ? parseInt(formData.get("top")) : null,
-        left: formData.get("left") ? parseInt(formData.get("left")) : null,
+      // Funcao de salvar para ser chamada apos confirmacao
+      const saveAction = async () => {
+        // Coletar dados do formulário
+        const formData = new FormData(e.target);
+        const data = {
+          name: formData.get("name"),
+          description: formData.get("description") || "",
+          top: formData.get("top") ? parseInt(formData.get("top")) : null,
+          left: formData.get("left") ? parseInt(formData.get("left")) : null,
+        };
+
+        // Nota: Imagens são gerenciadas via carrossel (exclusão individual)
+
+        // Coletar IDs de acessibilidade selecionados
+        const selectedCheckboxes = document.querySelectorAll(
+          '.accessibility-items-grid input[type="checkbox"]:checked'
+        );
+        data.accessibility_items = Array.from(selectedCheckboxes).map((cb) =>
+          parseInt(cb.value)
+        );
+
+        try {
+          if (location) {
+            // Atualizar local existente
+            await window.adminApi.updateLocation(location.id, data);
+            alert("Local atualizado com sucesso!");
+          } else {
+            // Criar novo local
+            await window.adminApi.createLocation(data);
+            alert("Local criado com sucesso!");
+          }
+          loadLocationsList();
+        } catch (error) {
+          console.error("Erro ao salvar local:", error);
+          alert("Erro ao salvar local. Tente novamente.");
+        }
       };
 
-      // Processa imagens
-      const imagesStr = formData.get("images")?.trim();
-      if (imagesStr) {
-        data.images = imagesStr
-          .split(",")
-          .map((url) => url.trim())
-          .filter((url) => url);
-      } else {
-        data.images = [];
-      }
-
-      // Coletar IDs de acessibilidade selecionados
-      const selectedCheckboxes = document.querySelectorAll(
-        '.accessibility-items input[type="checkbox"]:checked'
-      );
-      data.accessibility_items = Array.from(selectedCheckboxes).map((cb) =>
-        parseInt(cb.value)
-      );
-
-      try {
-        if (location) {
-          // Atualizar local existente
-          await window.adminApi.updateLocation(location.id, data);
-          alert("Local atualizado com sucesso!");
-        } else {
-          // Criar novo local
-          await window.adminApi.createLocation(data);
-          alert("Local criado com sucesso!");
-        }
-        loadLocationsList();
-      } catch (error) {
-        console.error("Erro ao salvar local:", error);
-        alert("Erro ao salvar local. Tente novamente.");
-      }
+      showConfirmation({
+        title: location ? "Salvar Alterações" : "Criar Local",
+        message: "Confirma os dados inseridos para este local?",
+        confirmText: location ? "Salvar" : "Criar",
+        onConfirm: saveAction
+      });
     });
 }
 
 // 3. Confirmar e deletar local
+// 3. Confirmar e deletar local
 async function confirmDeleteLocation(id) {
-  if (!confirm("Tem certeza que deseja excluir este local?")) {
+  showConfirmation({
+    title: "Excluir Local",
+    message: "Tem certeza que deseja excluir este local? Esta ação não pode ser desfeita.",
+    confirmText: "Excluir",
+    isDestructive: true,
+    onConfirm: async () => {
+      try {
+        await window.adminApi.deleteLocation(id);
+        alert("Local excluído com sucesso!");
+        loadLocationsList();
+      } catch (error) {
+        console.error("Erro ao excluir local:", error);
+        alert("Erro ao excluir local. Tente novamente.");
+      }
+    }
+  });
+}
+
+// 4. Deletar imagem de local
+async function deleteLocationImage(imageId, buttonElement) {
+  if (!imageId || imageId === 'null' || imageId === 'undefined') {
+    alert("Esta imagem não possui um ID válido para exclusão.");
     return;
   }
 
-  try {
-    await window.adminApi.deleteLocation(id);
-    alert("Local excluído com sucesso!");
-    loadLocationsList();
-  } catch (error) {
-    console.error("Erro ao excluir local:", error);
-    alert("Erro ao excluir local. Tente novamente.");
+  showConfirmation({
+    title: "Excluir Imagem",
+    message: "Deseja realmente remover esta imagem do local?",
+    confirmText: "Excluir",
+    isDestructive: true,
+    onConfirm: async () => {
+      // Desabilitar botão durante operação
+      if (buttonElement) {
+        buttonElement.disabled = true;
+        buttonElement.innerHTML = '<span class="loading-spinner-small"></span> Excluindo...';
+      }
+
+      try {
+        const success = await window.adminApi.deleteLocationImage(imageId);
+
+        if (success) {
+          // Remover slide do carrossel
+          const slide = buttonElement?.closest('.swiper-slide');
+          if (slide) {
+            slide.remove();
+
+            // Atualizar Swiper
+            if (window.editLocationCarousel) {
+              window.editLocationCarousel.update();
+            }
+
+            // Se não houver mais imagens, mostrar mensagem
+            const remainingSlides = document.querySelectorAll('#edit-location-carousel .swiper-slide');
+            if (remainingSlides.length === 0) {
+              const carousel = document.getElementById('location-images-carousel');
+              if (carousel) {
+                carousel.innerHTML = '<p class="no-images-msg">Nenhuma imagem cadastrada</p>';
+              }
+            }
+          }
+
+          alert("Imagem excluída com sucesso!");
+        } else {
+          throw new Error("Falha ao excluir imagem");
+        }
+      } catch (error) {
+        console.error("Erro ao excluir imagem:", error);
+        alert("Erro ao excluir imagem. Tente novamente.");
+
+        // Restaurar botão
+        if (buttonElement) {
+          buttonElement.disabled = false;
+          buttonElement.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              <line x1="10" y1="11" x2="10" y2="17"></line>
+              <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+            Excluir
+          `;
+        }
+      }
+    }
+  });
+}
+
+// ==========================
+// FUNÇÃO HELPER: SHOW CONFIRMATION
+// ==========================
+function showConfirmation({ title, message, confirmText = "Confirmar", cancelText = "Cancelar", isDestructive = false, onConfirm }) {
+  const modal = document.getElementById('confirmationModal');
+  const titleEl = document.getElementById('confirmTitle');
+  const messageEl = document.getElementById('confirmMessage');
+  const confirmBtn = document.getElementById('btnConfirmAction');
+  const cancelBtn = document.getElementById('btnCancelConfirm');
+
+  if (!modal || !confirmBtn || !cancelBtn) {
+    console.error("Modal elements not found!");
+    // Fallback if modal is missing for some reason
+    if (confirm(message)) {
+      onConfirm();
+    }
+    return;
+  }
+
+  // Set content
+  titleEl.textContent = title;
+  messageEl.textContent = message;
+  confirmBtn.textContent = confirmText;
+  cancelBtn.textContent = cancelText;
+
+  // Set style
+  if (isDestructive) {
+    confirmBtn.classList.add('destructive');
+  } else {
+    confirmBtn.classList.remove('destructive');
+  }
+
+  // Show modal
+  modal.style.display = 'flex';
+
+  // Event Handlers
+  const close = () => {
+    modal.style.display = 'none';
+    cleanup();
+  };
+
+  const handleConfirm = () => {
+    onConfirm();
+    close();
+  };
+
+  const handleOutsideClick = (e) => {
+    if (e.target === modal) {
+      close();
+    }
+  };
+
+  // Bind events
+  confirmBtn.onclick = handleConfirm;
+  cancelBtn.onclick = close;
+  window.addEventListener('click', handleOutsideClick);
+
+  // Cleanup to avoid multiple listeners
+  function cleanup() {
+    confirmBtn.onclick = null;
+    cancelBtn.onclick = null;
+    window.removeEventListener('click', handleOutsideClick);
   }
 }
 
@@ -690,3 +1004,4 @@ window.confirmDeleteLocation = confirmDeleteLocation;
 window.loadLocationsList = loadLocationsList;
 window.viewLocationDetails = viewLocationDetails;
 window.backToLocationsList = backToLocationsList;
+window.deleteLocationImage = deleteLocationImage;

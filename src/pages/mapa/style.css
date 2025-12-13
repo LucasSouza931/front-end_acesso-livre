@@ -97,6 +97,7 @@ body {
   width: 32px;
   height: 32px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   transform-origin: center;
@@ -903,6 +904,11 @@ h1 {
   .accessibility-icon-item {
     padding: 4px 4px 8px 4px;
     gap: 4px;
+  }
+
+  .accessibility-icon-img {
+    max-width: 50px;
+    max-height: 50px;
   }
 
   .accessibility-icon-name {

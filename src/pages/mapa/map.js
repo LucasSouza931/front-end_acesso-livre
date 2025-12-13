@@ -315,53 +315,22 @@ document.addEventListener("DOMContentLoaded", () => {
         renderImagesCarousel(swiperWrapper, allImages);
 
         // D. Coletar e exibir ícones dos comentários (sem duplicatas)
-        // Buscar todos os ícones disponíveis da API
-        let availableIcons = [];
-        try {
-          const iconsResponse = await fetch(`${API_BASE_URL}/comments/icons/`);
-          if (iconsResponse.ok) {
-            const iconsData = await iconsResponse.json();
-            console.log("DEBUG - Resposta da API /comments/icons/:", iconsData);
-            availableIcons = iconsData.icons || iconsData.comment_icons || iconsData || [];
-            console.log("DEBUG - Ícones disponíveis:", availableIcons);
-            if (availableIcons.length > 0) {
-              console.log("DEBUG - Estrutura de um ícone:", availableIcons[0]);
-            }
-          }
-        } catch (iconError) {
-          console.warn("Erro ao buscar ícones:", iconError);
-        }
-
-        // Criar mapa de ID -> ícone para lookup rápido
+        // Usar diretamente os ícones que já vêm nos comentários (sem requisição extra)
         const iconMap = new Map();
-        if (Array.isArray(availableIcons)) {
-          availableIcons.forEach(icon => {
-            iconMap.set(icon.id, icon);
-          });
-        }
 
-        // Coletar IDs únicos dos ícones de todos os comentários
-        const uniqueIconIds = new Set();
         comments.forEach((c) => {
-          // Suporte para comment_icon_ids (array de IDs) ou comment_icons (array de objetos)
-          if (c.comment_icon_ids && Array.isArray(c.comment_icon_ids)) {
-            c.comment_icon_ids.forEach(id => uniqueIconIds.add(id));
-          }
+          // Os ícones completos já vêm em comment_icons
           if (c.comment_icons && Array.isArray(c.comment_icons)) {
             c.comment_icons.forEach(icon => {
-              if (icon.id) uniqueIconIds.add(icon.id);
+              if (icon.id && !iconMap.has(icon.id)) {
+                iconMap.set(icon.id, icon);
+              }
             });
           }
         });
 
-        // Mapear IDs para ícones completos
-        const allCommentIcons = [];
-        uniqueIconIds.forEach(iconId => {
-          const icon = iconMap.get(iconId);
-          if (icon) {
-            allCommentIcons.push(icon);
-          }
-        });
+        // Converter Map para array de ícones únicos
+        const allCommentIcons = Array.from(iconMap.values());
 
         // Atualizar seção de Informações de Acessibilidade com os ícones
         if (allCommentIcons.length > 0) {
