@@ -736,6 +736,14 @@ document.addEventListener("DOMContentLoaded", () => {
     if (addCommentBackBtn) {
       addCommentBackBtn.addEventListener("click", () => {
         const infoModal = document.getElementById(MODAL_IDS.infoModal);
+        const addModal = document.getElementById(MODAL_IDS.addCommentModal);
+        if (addModal) addModal.style.display = "none";
+        if (infoModal) {
+          infoModal.style.display = "flex";
+          setTimeout(() => {
+            infoModal.scrollIntoView({ behavior: "smooth", block: "center" });
+          }, 0);
+        }
       });
     }
 
