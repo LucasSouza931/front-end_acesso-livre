@@ -160,38 +160,6 @@ export const adminApi = {
         }
     },
 
-    // Buscar ícones de comentários (para usar como itens de acessibilidade)
-    async getCommentIcons() {
-        try {
-            const response = await fetch(`${API_BASE_URL}/comments/icons/`, {
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer " + sessionStorage.getItem("authToken")
-                }
-            });
-            return await response.json();
-        } catch (err) {
-            console.error("Erro ao buscar ícones de comentários:", err);
-            return [];
-        }
-    },
-
-    // Buscar comentários por local
-    async getCommentsByLocation(locationId) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/comments/${locationId}/comments`, {
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": "Bearer " + sessionStorage.getItem("authToken")
-                }
-            });
-            return await response.json();
-        } catch (err) {
-            console.error("Erro ao buscar comentários do local:", err);
-            return [];
-        }
-    },
-
     // Criar novo item de acessibilidade
     async createAccessibilityItem(data) {
         try {
@@ -207,25 +175,6 @@ export const adminApi = {
         } catch (err) {
             console.error("Erro ao criar item de acessibilidade:", err);
             return null;
-        }
-    },
-
-    // Deletar imagem de local (usa o mesmo endpoint de imagens de comentários)
-    async deleteLocationImage(imageId) {
-        try {
-            const response = await fetch(`${API_BASE_URL}/comments/images/${imageId}`, {
-                method: "DELETE",
-                headers: {
-                    "Authorization": "Bearer " + sessionStorage.getItem("authToken")
-                }
-            });
-            if (!response.ok) {
-                throw new Error(`Erro ao deletar imagem: ${response.status}`);
-            }
-            return true;
-        } catch (err) {
-            console.error("Erro ao deletar imagem:", err);
-            return false;
         }
     },
 };
